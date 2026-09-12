@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Mirrors stitch_fasol_doctor_agriculture_app_design/camera_take_photo —
@@ -16,10 +17,47 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
+  final _api = ApiClient();
   bool _flashOn = false;
   bool _capturing = false;
+  List<Map<String, dynamic>> _crops = [];
+  String? _selectedCropId;
+  bool _loadingCrops = true;
+  String? _cropsError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCrops();
+  }
+
+  Future<void> _loadCrops() async {
+    try {
+      final crops = await _api.getCrops();
+      if (!mounted) return;
+      setState(() {
+        _crops = crops;
+        _selectedCropId = crops.isNotEmpty ? crops.first['id'] as String : null;
+        _loadingCrops = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cropsError = 'ফসলের তালিকা আনা যায়নি';
+        _loadingCrops = false;
+      });
+    }
+  }
+
+  String? get _selectedCropNameBn {
+    for (final crop in _crops) {
+      if (crop['id'] == _selectedCropId) return crop['name_bn'] as String?;
+    }
+    return null;
+  }
 
   Future<void> _capture(ImageSource source) async {
+    if (_selectedCropId == null) return; // crop must be selected first
     if (source == ImageSource.camera) {
       setState(() => _capturing = true);
       await Future.delayed(const Duration(milliseconds: 600));
@@ -35,6 +73,8 @@ class _CameraScreenState extends State<CameraScreen> {
       'bytes': bytes,
       'filename': file.name,
       'contentType': _guessContentType(file.name),
+      'cropId': _selectedCropId,
+      'cropNameBn': _selectedCropNameBn,
     });
   }
 
@@ -52,6 +92,46 @@ class _CameraScreenState extends State<CameraScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Crop selector — must be chosen before capture/upload so the
+            // diagnosis is restricted to the right crop's disease list.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(16), boxShadow: AppElevation.level1),
+                child: _loadingCrops
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Row(children: [
+                          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: 12),
+                          Text('ফসলের তালিকা আনা হচ্ছে...'),
+                        ]),
+                      )
+                    : _cropsError != null
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(_cropsError!, style: AppText.bodySm())),
+                                TextButton(onPressed: _loadCrops, child: const Text('আবার চেষ্টা করুন')),
+                              ],
+                            ),
+                          )
+                        : DropdownButtonHideUnderline(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedCropId,
+                              decoration: const InputDecoration(labelText: 'ফসল নির্বাচন করুন', border: InputBorder.none),
+                              items: _crops
+                                  .map((crop) => DropdownMenuItem(value: crop['id'] as String, child: Text(crop['name_bn'] as String)))
+                                  .toList(),
+                              onChanged: (value) => setState(() => _selectedCropId = value),
+                            ),
+                          ),
+              ),
+            ),
             // Viewfinder stage
             Expanded(
               child: Padding(
@@ -175,24 +255,30 @@ class _CameraScreenState extends State<CameraScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _RoundActionButton(
-                        icon: Icons.photo_library,
-                        iconColor: AppColors.primary,
-                        label: 'গ্যালারি',
-                        onTap: () => _capture(ImageSource.gallery),
+                      Opacity(
+                        opacity: _selectedCropId == null ? 0.4 : 1.0,
+                        child: _RoundActionButton(
+                          icon: Icons.photo_library,
+                          iconColor: AppColors.primary,
+                          label: 'গ্যালারি',
+                          onTap: _selectedCropId == null ? () {} : () => _capture(ImageSource.gallery),
+                        ),
                       ),
-                      GestureDetector(
-                        onTap: () => _capture(ImageSource.camera),
-                        child: Container(
-                          width: 84,
-                          height: 84,
-                          decoration: BoxDecoration(color: AppColors.surfaceRaised, shape: BoxShape.circle, boxShadow: AppElevation.level2),
-                          child: Center(
-                            child: Container(
-                              width: 62,
-                              height: 62,
-                              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                              child: const Icon(Icons.photo_camera, color: Colors.white, size: 32),
+                      Opacity(
+                        opacity: _selectedCropId == null ? 0.4 : 1.0,
+                        child: GestureDetector(
+                          onTap: _selectedCropId == null ? null : () => _capture(ImageSource.camera),
+                          child: Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(color: AppColors.surfaceRaised, shape: BoxShape.circle, boxShadow: AppElevation.level2),
+                            child: Center(
+                              child: Container(
+                                width: 62,
+                                height: 62,
+                                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                                child: const Icon(Icons.photo_camera, color: Colors.white, size: 32),
+                              ),
                             ),
                           ),
                         ),

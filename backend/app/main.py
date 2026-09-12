@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import dashboard, demo, diagnosis, field_worker, images
+from app.api.routes import crops, dashboard, demo, diagnosis, field_worker, images
 
 app = FastAPI(title="Fasol Doctor API", version="0.1.0")
 
@@ -19,6 +19,7 @@ app.include_router(field_worker.router)
 app.include_router(dashboard.router)
 app.include_router(demo.router)
 app.include_router(images.router)
+app.include_router(crops.router)
 
 
 @app.get("/health")

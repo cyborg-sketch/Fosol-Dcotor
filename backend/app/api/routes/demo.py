@@ -16,10 +16,10 @@ def demo_context(db: Session = Depends(get_db)):
     and their selected crop.
     """
     farmer = db.query(Farmer).order_by(Farmer.created_at).first()
-    # Pinned to Rice, not just "first crop" by id (UUIDs sort randomly) —
-    # Rice is the crop scripts/seed_demo.py gives a disease + approved
-    # treatments to, so it's the one guaranteed to produce a real result.
-    crop = db.query(Crop).filter(Crop.name_en == "Rice").first()
+    # Pinned to Tomato, not just "first crop" by id (UUIDs sort randomly) —
+    # Tomato has the richest seeded disease set (6 classes) of the 9 crops in
+    # scripts/seed_demo.py, giving the best demo depth for this hardcoded pick.
+    crop = db.query(Crop).filter(Crop.name_en == "Tomato").first()
     if not farmer or not crop:
         raise HTTPException(status_code=404, detail="No seed data — run scripts/seed_demo.py first")
     return {

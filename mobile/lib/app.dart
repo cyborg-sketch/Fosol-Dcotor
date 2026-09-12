@@ -35,7 +35,16 @@ final _router = GoRouter(
         return const DiagnosisResultScreen(); // design-preview fallback, no live data
       },
     ),
-    GoRoute(path: '/treatment', builder: (_, __) => const TreatmentScreen()),
+    GoRoute(
+      path: '/treatment',
+      builder: (context, state) {
+        final data = state.extra;
+        if (data is Map) {
+          return TreatmentScreen.fromExtra(data);
+        }
+        return const TreatmentScreen(); // design-preview fallback, no live data
+      },
+    ),
     GoRoute(path: '/history', builder: (_, __) => const HistoryScreen()),
     GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
     GoRoute(path: '/field-worker', builder: (_, __) => const FieldWorkerQueueScreen()),

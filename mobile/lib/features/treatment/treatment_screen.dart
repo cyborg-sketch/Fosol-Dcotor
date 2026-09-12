@@ -2,30 +2,91 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
+const _categoryLabelsBn = {
+  'organic': 'জৈব পদ্ধতি',
+  'low_chemical': 'কম রাসায়নিক',
+  'chemical': 'রাসায়নিক',
+};
+
 /// Follows the DESIGN.md "Agricultural Diagnostic Card" and button rules.
 /// Only renders treatment content the backend marked `approved: true` and
 /// already ranked deterministically — this screen never re-orders or
 /// filters, so it can't silently disagree with the treatment_engine rules.
 class TreatmentScreen extends StatelessWidget {
-  const TreatmentScreen({super.key});
+  const TreatmentScreen({
+    super.key,
+    this.diseaseNameBn = 'ফসলের রোগ',
+    this.treatments = const [],
+    this.isTentative = false,
+  });
+
+  final String diseaseNameBn;
+  final List<Map<String, dynamic>> treatments;
+  final bool isTentative;
+
+  /// Builds the screen from the `extra` map passed by DiagnosisResultScreen's
+  /// treatment button — the live data path. [isTentative] is true when this
+  /// came from a NEEDS_REVIEW result: the model's top guess, not a confirmed
+  /// diagnosis, so the advice must stay visibly preliminary.
+  factory TreatmentScreen.fromExtra(Map data) {
+    return TreatmentScreen(
+      diseaseNameBn: data['diseaseNameBn'] as String? ?? 'ফসলের রোগ',
+      treatments: (data['treatments'] as List?)?.cast<Map<String, dynamic>>() ?? const [],
+      isTentative: data['isTentative'] as bool? ?? false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ধানের ব্লাস্ট রোগ')),
+      appBar: AppBar(title: Text(diseaseNameBn)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Text('এখন কী করবেন?', style: AppText.headlineMd()),
           const SizedBox(height: 16),
-          const _Step(number: 1, label: 'আক্রান্ত পাতা সরিয়ে ফেলুন'),
-          const _Step(number: 2, label: 'জৈব ছত্রাকনাশক প্রয়োগ করুন'),
-          const _Step(number: 3, label: '৫-৭ দিন পর আবার পরীক্ষা করুন'),
-          const SizedBox(height: 20),
-          const _TreatmentCategory(title: 'জৈব/কম রাসায়নিক', body: 'নিমতেল স্প্রে, সপ্তাহে ২ বার'),
+          if (isTentative) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: const Color(0xFFFFDCC3), borderRadius: BorderRadius.circular(16)),
+              child: Row(
+                children: [
+                  const Icon(Icons.help_outline, color: Color(0xFF6E3900)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'এটি একটি প্রাথমিক অনুমান, নিশ্চিত রোগ নির্ণয় নয় — নিচের পরামর্শ প্রয়োগের আগে একজন কৃষি বিশেষজ্ঞের মাধ্যমে যাচাই করে নিন।',
+                      style: AppText.bodySm(color: const Color(0xFF6E3900)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (treatments.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(16), boxShadow: AppElevation.level1),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: AppColors.primary, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('গাছটি সুস্থ দেখাচ্ছে — এখনই কোনো চিকিৎসার প্রয়োজন নেই।', style: AppText.bodyMd())),
+                ],
+              ),
+            )
+          else ...[
+            for (final treatment in treatments) ...[
+              _TreatmentCategory(
+                title: _categoryLabelsBn[treatment['category']] ?? 'পরামর্শ',
+                body: treatment['action_bn'] as String? ?? '',
+                safetyNoteBn: treatment['safety_notes_bn'] as String?,
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
           const SizedBox(height: 12),
-          const _TreatmentCategory(title: 'প্রয়োজনে রাসায়নিক', body: 'ট্রাইসাইক্লাজল — লেবেল অনুযায়ী মাত্রা'),
-          const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: const Color(0xFFFFDCC3), borderRadius: BorderRadius.circular(16)),
@@ -42,30 +103,11 @@ class TreatmentScreen extends StatelessWidget {
   }
 }
 
-class _Step extends StatelessWidget {
-  const _Step({required this.number, required this.label});
-  final int number;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 14, backgroundColor: AppColors.primaryFixed, child: Text('$number', style: AppText.labelMd(color: AppColors.primary))),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: AppText.bodyMd())),
-        ],
-      ),
-    );
-  }
-}
-
 class _TreatmentCategory extends StatelessWidget {
-  const _TreatmentCategory({required this.title, required this.body});
+  const _TreatmentCategory({required this.title, required this.body, this.safetyNoteBn});
   final String title;
   final String body;
+  final String? safetyNoteBn;
 
   @override
   Widget build(BuildContext context) {
@@ -78,6 +120,10 @@ class _TreatmentCategory extends StatelessWidget {
           Text(title, style: AppText.labelLg()),
           const SizedBox(height: 6),
           Text(body, style: AppText.bodySm()),
+          if (safetyNoteBn != null && safetyNoteBn!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(safetyNoteBn!, style: AppText.labelSm(color: AppColors.onSurfaceVariant)),
+          ],
         ],
       ),
     );

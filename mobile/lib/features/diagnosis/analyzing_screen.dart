@@ -41,6 +41,12 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
       String? imageRef;
       Map<String, dynamic>? symptomsPayload;
 
+      // CameraScreen's crop dropdown picks the real crop for a photo — the
+      // voice/symptom flow still has no crop picker of its own, so it falls
+      // back to the hardcoded /demo/context crop.
+      final cropId = (input is Map ? input['cropId'] as String? : null) ?? demoContext['crop_id'] as String;
+      final cropNameBn = (input is Map ? input['cropNameBn'] as String? : null) ?? demoContext['crop_name_bn'] as String;
+
       if (input is Map && input['type'] == 'image') {
         imageRef = await _api.uploadImage(
           input['bytes'] as Uint8List,
@@ -49,20 +55,23 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
         );
       } else if (input is Map && input['type'] == 'symptoms') {
         symptomsPayload = {
-          'crop': demoContext['crop_name_bn'],
+          'crop': cropNameBn,
           'symptoms': [input['text'] as String],
         };
       }
 
       final result = await _api.createDiagnosis(
         farmerId: demoContext['farmer_id'] as String,
-        cropId: demoContext['crop_id'] as String,
+        cropId: cropId,
         imageRef: imageRef,
         symptoms: symptomsPayload,
         source: 'online',
       );
 
-      if (mounted) context.go('/diagnosis/${result['id']}', extra: result);
+      // /diagnoses doesn't return crop_name_bn itself — attach the crop that
+      // was actually diagnosed against so DiagnosisResultScreen can show it.
+      final resultWithCrop = {...result, 'crop_name_bn': cropNameBn};
+      if (mounted) context.go('/diagnosis/${result['id']}', extra: resultWithCrop);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }

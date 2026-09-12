@@ -81,6 +81,14 @@ class ApiClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<List<Map<String, dynamic>>> getCrops() async {
+    final response = await http.get(Uri.parse('$baseUrl/crops'));
+    if (response.statusCode >= 400) {
+      throw ApiException(response.statusCode, response.body);
+    }
+    return (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+  }
+
   Future<Map<String, dynamic>> getDemoContext() async {
     final response = await http.get(Uri.parse('$baseUrl/demo/context'));
     if (response.statusCode >= 400) {

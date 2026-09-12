@@ -8,3 +8,9 @@ dist/
 build/
 .DS_Store
 .idea/
+
+# training dataset (~1.1GB) and user-uploaded diagnosis photos — not source
+backend/assets/disease_references/Train/
+backend/assets/disease_references/Val/
+backend/assets/disease_references/Test/
+backend/uploads/*

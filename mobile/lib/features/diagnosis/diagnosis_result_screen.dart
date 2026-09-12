@@ -16,6 +16,7 @@ class DiagnosisResultScreen extends StatefulWidget {
     this.cropLabelBn = 'ধান ফসল',
     this.confidencePercent = 94,
     this.needsReview = false,
+    this.treatments = const [],
   });
 
   final String diseaseNameBn;
@@ -23,24 +24,34 @@ class DiagnosisResultScreen extends StatefulWidget {
   final String cropLabelBn;
   final int confidencePercent;
   final bool needsReview;
+  final List<Map<String, dynamic>> treatments;
 
   /// Builds the screen from a POST /diagnoses (or GET /diagnoses/:id)
   /// response — the real path, used once analyzing_screen.dart gets a
   /// result back. `status` decides [needsReview], never the raw confidence
   /// number alone, matching the backend's confidence_engine rule.
+  /// `crop_name_bn` is not part of the /diagnoses response itself — it's
+  /// attached by analyzing_screen.dart from /demo/context before navigating.
   factory DiagnosisResultScreen.fromApi(Map<String, dynamic> data) {
     final candidates = (data['candidates'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final topCandidate = candidates.isNotEmpty ? candidates.first : null;
     final confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
     final needsReview = data['status'] == 'NEEDS_REVIEW';
+    final topDiseaseNameBn = topCandidate?['disease_name_bn'] as String? ?? 'অজানা সমস্যা';
+    final confidencePercent = (confidence * 100).round();
 
     return DiagnosisResultScreen(
-      diseaseNameBn: needsReview
-          ? 'নিশ্চিতভাবে রোগটি শনাক্ত করা যায়নি'
-          : (topCandidate?['disease_name_bn'] as String? ?? 'অজানা সমস্যা'),
+      // Even when unconfirmed, show the model's actual top guess (clearly
+      // labeled tentative) instead of a fully generic message — the farmer
+      // and field worker still benefit from knowing what it suspects, they
+      // just shouldn't treat it as confirmed. Treatments/expert-only actions
+      // still stay gated on needsReview elsewhere in this screen.
+      diseaseNameBn: needsReview ? 'সম্ভাব্য: $topDiseaseNameBn ($confidencePercent%, অনিশ্চিত)' : topDiseaseNameBn,
       diseaseNameEn: '',
-      confidencePercent: (confidence * 100).round(),
+      cropLabelBn: data['crop_name_bn'] as String? ?? 'ফসল',
+      confidencePercent: confidencePercent,
       needsReview: needsReview,
+      treatments: (data['treatments'] as List?)?.cast<Map<String, dynamic>>() ?? const [],
     );
   }
 
@@ -143,7 +154,7 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.needsReview ? 'নিশ্চিতভাবে রোগটি শনাক্ত করা যায়নি' : widget.diseaseNameBn,
+                  widget.diseaseNameBn,
                   style: AppText.headlineMd(),
                 ),
                 if (!widget.needsReview && widget.diseaseNameEn.isNotEmpty) ...[
@@ -285,7 +296,10 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
 
           if (!widget.needsReview) ...[
             ElevatedButton.icon(
-              onPressed: () => context.push('/treatment'),
+              onPressed: () => context.push('/treatment', extra: {
+                'diseaseNameBn': widget.diseaseNameBn,
+                'treatments': widget.treatments,
+              }),
               icon: const Icon(Icons.medication),
               label: const Text('চিকিৎসার সহজ পরামর্শ দেখুন'),
             ),
@@ -296,6 +310,17 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
               label: const Text('কৃষি বিশেষজ্ঞের মতামত নিন'),
             ),
           ] else ...[
+            if (widget.treatments.isNotEmpty)
+              OutlinedButton.icon(
+                onPressed: () => context.push('/treatment', extra: {
+                  'diseaseNameBn': widget.diseaseNameBn,
+                  'treatments': widget.treatments,
+                  'isTentative': true,
+                }),
+                icon: const Icon(Icons.medication_outlined),
+                label: const Text('সম্ভাব্য চিকিৎসার পরামর্শ দেখুন'),
+              ),
+            if (widget.treatments.isNotEmpty) const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: () {},
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),

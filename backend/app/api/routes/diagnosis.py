@@ -38,10 +38,16 @@ async def _rank_candidates(payload: DiagnosisCreateRequest, candidates: list[Dis
             if r["disease_name_en"] in by_name_en
         ]
         if not ranked:
-            # No reference photo exists yet for any disease under this crop —
+            # No seeded disease matches any of the model's classes for this crop —
             # fall back to an even, low-confidence spread rather than pretending certainty.
-            ranked = [(d, 1 / len(candidates)) for d in candidates]
-        return ranked
+            return [(d, 1 / len(candidates)) for d in candidates]
+
+        # The vision model's softmax runs over all classes it was trained on, not just
+        # this crop's — renormalize the filtered subset back to sum to 1 so the
+        # confidence threshold in confidence_engine still means "how sure among this
+        # crop's diseases," not "how sure among every disease in the whole dataset."
+        total = sum(confidence for _, confidence in ranked)
+        return [(disease, confidence / total) for disease, confidence in ranked]
 
     if payload.symptoms:
         transcript = " ".join(payload.symptoms.symptoms)
@@ -77,7 +83,7 @@ async def create_diagnosis(payload: DiagnosisCreateRequest, db: Session = Depend
         symptoms_json=payload.symptoms.model_dump() if payload.symptoms else None,
         confidence=top_confidence,
         source=payload.source,
-        model_version="efficientnet-b0-prototype-v1" if payload.image_ref else "banglabert-similarity-v1",
+        model_version="efficientnet-b0-linear-head-v1" if payload.image_ref else "banglabert-similarity-v1",
         status=status,
     )
     db.add(diagnosis)

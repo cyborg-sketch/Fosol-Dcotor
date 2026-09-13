@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -39,7 +40,21 @@ class TreatmentScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(diseaseNameBn)),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'ফিরে যান',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        title: Text(diseaseNameBn),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'হোম',
+            onPressed: () => context.go('/home'),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -97,6 +112,12 @@ class TreatmentScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton(onPressed: () {}, child: const Text('পরামর্শটি সংরক্ষণ করুন')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home),
+            label: const Text('হোমে ফিরে যান'),
+          ),
         ],
       ),
     );

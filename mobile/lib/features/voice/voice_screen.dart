@@ -57,6 +57,14 @@ class _VoiceScreenState extends State<VoiceScreen> {
     final hasTranscript = _transcript.isNotEmpty;
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'ফিরে যান',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        title: const Text('ভয়েস সহকারী'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),

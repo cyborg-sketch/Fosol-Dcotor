@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -28,3 +29,13 @@ async def upload_image(file: UploadFile):
     destination.write_bytes(contents)
 
     return {"image_ref": filename}
+
+
+@router.get("/{filename}")
+def get_image(filename: str):
+    """Serves the uploaded image so the app and web dashboard can display it."""
+    file_path = UPLOAD_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(file_path)
+

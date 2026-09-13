@@ -7,11 +7,26 @@ import 'package:hive_flutter/hive_flutter.dart';
 class OfflineCache {
   static const _diseasesBox = 'cached_diseases';
   static const _treatmentsBox = 'cached_treatments';
+  static const _settingsBox = 'settings';
 
   static Future<void> init() async {
     await Hive.initFlutter();
     await Hive.openBox(_diseasesBox);
     await Hive.openBox(_treatmentsBox);
+    await Hive.openBox(_settingsBox);
+  }
+
+  static String? getServerUrl() {
+    try {
+      return Hive.box(_settingsBox).get('server_url') as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> setServerUrl(String url) async {
+    final box = Hive.box(_settingsBox);
+    await box.put('server_url', url.trim());
   }
 
   static Future<void> cacheDiseases(List<Map<String, dynamic>> diseases) async {

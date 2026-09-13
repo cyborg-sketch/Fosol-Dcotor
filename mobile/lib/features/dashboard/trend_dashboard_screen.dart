@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
@@ -27,7 +28,14 @@ class _TrendDashboardScreenState extends State<TrendDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('আঞ্চলিক প্রবণতা')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'ফিরে যান',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        title: const Text('আঞ্চলিক প্রবণতা'),
+      ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _trends,
         builder: (context, snapshot) {

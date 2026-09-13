@@ -29,8 +29,8 @@ final _router = GoRouter(
       path: '/diagnosis/:id',
       builder: (context, state) {
         final data = state.extra;
-        if (data is Map<String, dynamic>) {
-          return DiagnosisResultScreen.fromApi(data);
+        if (data is Map) {
+          return DiagnosisResultScreen.fromApi(Map<String, dynamic>.from(data));
         }
         return const DiagnosisResultScreen(); // design-preview fallback, no live data
       },

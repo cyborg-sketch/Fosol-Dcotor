@@ -19,11 +19,24 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen> {
   final _api = ApiClient();
   bool _flashOn = false;
+  static final List<Map<String, dynamic>> _defaultCrops = [
+    {'id': 'fb68f592-2b1e-4295-91e0-26d672c226cb', 'name_en': 'Rice', 'name_bn': 'ধান'},
+    {'id': '5968c8c3-7a80-4ba3-b12f-98f608134f76', 'name_en': 'Jute', 'name_bn': 'পাট'},
+    {'id': '8404d426-dba2-41ae-8ca3-095619a4a2cd', 'name_en': 'Tomato', 'name_bn': 'টমেটো'},
+    {'id': '1c55ff3c-0dae-45c9-ae22-a224ac5cde51', 'name_en': 'Brinjal (Eggplant)', 'name_bn': 'বেগুন'},
+    {'id': '4f3c4cc3-6987-4603-acd2-360e9f561bf1', 'name_en': 'Potato', 'name_bn': 'আলু'},
+    {'id': 'eeafda52-128c-4216-9703-21cd6c6444f5', 'name_en': 'Corn (Maize)', 'name_bn': 'ভুট্টা'},
+    {'id': '19712227-25c2-44d7-ae1e-9cb5aa5a2b6f', 'name_en': 'Bell Pepper', 'name_bn': 'ক্যাপসিকাম'},
+    {'id': '322f226e-4196-4f4a-802a-72943ca9dc09', 'name_en': 'Apple', 'name_bn': 'আপেল'},
+    {'id': 'e6c3292d-dfdf-46b1-b7e6-3ec8bf58edbc', 'name_en': 'Grape', 'name_bn': 'আঙুর'},
+    {'id': 'a402c71b-3fac-4670-bafc-0c070557e4cc', 'name_en': 'Cherry', 'name_bn': 'চেরি'},
+    {'id': '4fa46bea-332c-44d8-8361-92916a279fbe', 'name_en': 'Peach', 'name_bn': 'পীচ'},
+    {'id': '46019a4c-d172-428d-8851-b0e16188912a', 'name_en': 'Strawberry', 'name_bn': 'স্ট্রবেরি'},
+  ];
+
   bool _capturing = false;
-  List<Map<String, dynamic>> _crops = [];
-  String? _selectedCropId;
-  bool _loadingCrops = true;
-  String? _cropsError;
+  List<Map<String, dynamic>> _crops = List.from(_defaultCrops);
+  String? _selectedCropId = 'fb68f592-2b1e-4295-91e0-26d672c226cb';
 
   @override
   void initState() {
@@ -35,17 +48,17 @@ class _CameraScreenState extends State<CameraScreen> {
     try {
       final crops = await _api.getCrops();
       if (!mounted) return;
-      setState(() {
-        _crops = crops;
-        _selectedCropId = crops.isNotEmpty ? crops.first['id'] as String : null;
-        _loadingCrops = false;
-      });
+      if (crops.isNotEmpty) {
+        setState(() {
+          _crops = crops;
+          if (!_crops.any((c) => c['id'] == _selectedCropId)) {
+            _selectedCropId = _crops.first['id'] as String;
+          }
+        });
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _cropsError = 'ফসলের তালিকা আনা যায়নি';
-        _loadingCrops = false;
-      });
+      // Default crops are already loaded, so user is never blocked
     }
   }
 
@@ -57,7 +70,7 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _capture(ImageSource source) async {
-    if (_selectedCropId == null) return; // crop must be selected first
+    if (_selectedCropId == null) return;
     if (source == ImageSource.camera) {
       setState(() => _capturing = true);
       await Future.delayed(const Duration(milliseconds: 600));
@@ -92,44 +105,138 @@ class _CameraScreenState extends State<CameraScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Top navigation header bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: AppElevation.level1,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+                      tooltip: 'ফিরে যান',
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text('ছবি তুলে রোগ দেখুন', style: AppText.headlineSm()),
+                  const Spacer(),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: AppElevation.level1,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.home_outlined, color: AppColors.onSurface),
+                      tooltip: 'হোম',
+                      onPressed: () => context.go('/home'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             // Crop selector — must be chosen before capture/upload so the
             // diagnosis is restricted to the right crop's disease list.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(16), boxShadow: AppElevation.level1),
-                child: _loadingCrops
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        child: Row(children: [
-                          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                          SizedBox(width: 12),
-                          Text('ফসলের তালিকা আনা হচ্ছে...'),
-                        ]),
-                      )
-                    : _cropsError != null
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(_cropsError!, style: AppText.bodySm())),
-                                TextButton(onPressed: _loadCrops, child: const Text('আবার চেষ্টা করুন')),
-                              ],
-                            ),
-                          )
-                        : DropdownButtonHideUnderline(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedCropId,
-                              decoration: const InputDecoration(labelText: 'ফসল নির্বাচন করুন', border: InputBorder.none),
-                              items: _crops
-                                  .map((crop) => DropdownMenuItem(value: crop['id'] as String, child: Text(crop['name_bn'] as String)))
-                                  .toList(),
-                              onChanged: (value) => setState(() => _selectedCropId = value),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                  boxShadow: AppElevation.level1,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.eco, color: AppColors.primary, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: _selectedCropId,
+                          dropdownColor: Colors.white,
+                          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primary, size: 28),
+                          hint: const Text(
+                            'ফসল নির্বাচন করুন',
+                            style: TextStyle(
+                              color: Color(0xFF4B5563),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              fontFamilyFallback: ['Noto Sans Bengali', 'Bangla', 'sans-serif'],
                             ),
                           ),
+                          style: const TextStyle(
+                            color: Color(0xFF111827),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            fontFamilyFallback: ['Noto Sans Bengali', 'Bangla', 'sans-serif'],
+                          ),
+                          selectedItemBuilder: (BuildContext context) {
+                            return _crops.map<Widget>((crop) {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  crop['name_bn'] as String,
+                                  style: const TextStyle(
+                                    color: Color(0xFF111827),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamilyFallback: ['Noto Sans Bengali', 'Bangla', 'sans-serif'],
+                                  ),
+                                ),
+                              );
+                            }).toList();
+                          },
+                          items: _crops.map((crop) {
+                            final isSelected = crop['id'] == _selectedCropId;
+                            return DropdownMenuItem<String>(
+                              value: crop['id'] as String,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.eco,
+                                      color: isSelected ? AppColors.primary : const Color(0xFF9CA3AF),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        crop['name_bn'] as String,
+                                        style: TextStyle(
+                                          color: isSelected ? AppColors.primary : const Color(0xFF111827),
+                                          fontSize: 16,
+                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                          fontFamilyFallback: const ['Noto Sans Bengali', 'Bangla', 'sans-serif'],
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      const Icon(Icons.check, color: AppColors.primary, size: 20),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _selectedCropId = value);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Viewfinder stage
@@ -177,10 +284,10 @@ class _CameraScreenState extends State<CameraScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  CircleAvatar(
+                                  const CircleAvatar(
                                     radius: 22,
                                     backgroundColor: AppColors.secondaryContainer,
-                                    child: const Icon(Icons.volume_up, color: AppColors.onSecondaryContainer),
+                                    child: Icon(Icons.volume_up, color: AppColors.onSecondaryContainer),
                                   ),
                                 ],
                               ),
@@ -271,7 +378,7 @@ class _CameraScreenState extends State<CameraScreen> {
                           child: Container(
                             width: 84,
                             height: 84,
-                            decoration: BoxDecoration(color: AppColors.surfaceRaised, shape: BoxShape.circle, boxShadow: AppElevation.level2),
+                            decoration: const BoxDecoration(color: AppColors.surfaceRaised, shape: BoxShape.circle, boxShadow: AppElevation.level2),
                             child: Center(
                               child: Container(
                                 width: 62,

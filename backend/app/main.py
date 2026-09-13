@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.api.routes import crops, dashboard, demo, diagnosis, field_worker, images
 
@@ -25,3 +27,16 @@ app.include_router(crops.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/fosol-doctor.apk")
+def download_apk():
+    apk_path = Path("/home/faiyazbinhashem/my-projects/fosol-doctor/fosol-doctor.apk")
+    if apk_path.exists():
+        return FileResponse(
+            apk_path,
+            media_type="application/vnd.android.package-archive",
+            filename="fosol-doctor.apk",
+        )
+    raise HTTPException(status_code=404, detail="APK file not found")
+

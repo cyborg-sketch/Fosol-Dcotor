@@ -28,7 +28,7 @@ class TreatmentOut(BaseModel):
 
 class DiagnosisCreateRequest(BaseModel):
     farmer_id: uuid.UUID
-    crop_id: uuid.UUID
+    crop_id: Optional[uuid.UUID] = None
     image_ref: Optional[str] = None
     symptoms: Optional[SymptomExtraction] = None
     source: Literal["online", "offline"] = "online"
@@ -38,6 +38,9 @@ class DiagnosisResult(BaseModel):
     id: uuid.UUID
     status: Literal["AUTO_RESOLVED", "NEEDS_REVIEW", "VERIFIED"]
     confidence: float
+    crop_id: Optional[uuid.UUID] = None
+    crop_name_bn: Optional[str] = None
+    image_ref: Optional[str] = None
     candidates: list[DiagnosisCandidateOut]
     treatments: list[TreatmentOut]
     created_at: datetime

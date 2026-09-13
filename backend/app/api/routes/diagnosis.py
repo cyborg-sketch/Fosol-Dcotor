@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.routes.images import UPLOAD_DIR
 from app.db.session import get_db
+from app.models.crop import Crop
 from app.models.diagnosis import Diagnosis, DiagnosisCandidate, DiagnosisTreatment
 from app.models.disease import Disease
 from app.schemas.diagnosis import (
@@ -68,17 +69,22 @@ async def create_diagnosis(payload: DiagnosisCreateRequest, db: Session = Depend
     treatment ranking rules exactly as the plan requires (models never
     invent treatment content or their own confidence normalization).
     """
-    candidates = db.query(Disease).filter(Disease.crop_id == payload.crop_id).all()
+    if payload.crop_id:
+        candidates = db.query(Disease).filter(Disease.crop_id == payload.crop_id).all()
+    else:
+        candidates = db.query(Disease).all()
+
     if not candidates:
-        raise HTTPException(status_code=422, detail="No seeded diseases for this crop yet")
+        raise HTTPException(status_code=422, detail="No seeded diseases yet")
 
     ranked = await _rank_candidates(payload, candidates)
     top_disease, top_confidence = ranked[0]
     status = resolve_status(top_confidence)
 
+    crop_id = payload.crop_id or top_disease.crop_id
     diagnosis = Diagnosis(
         farmer_id=payload.farmer_id,
-        crop_id=payload.crop_id,
+        crop_id=crop_id,
         image_ref=payload.image_ref,
         symptoms_json=payload.symptoms.model_dump() if payload.symptoms else None,
         confidence=top_confidence,
@@ -104,10 +110,14 @@ async def create_diagnosis(payload: DiagnosisCreateRequest, db: Session = Depend
     db.commit()
     db.refresh(diagnosis)
 
+    crop = db.get(Crop, diagnosis.crop_id)
     return DiagnosisResult(
         id=diagnosis.id,
         status=diagnosis.status,
         confidence=diagnosis.confidence,
+        crop_id=diagnosis.crop_id,
+        crop_name_bn=crop.name_bn if crop else None,
+        image_ref=diagnosis.image_ref,
         candidates=[
             DiagnosisCandidateOut(disease_id=disease.id, disease_name_bn=disease.name_bn, confidence=confidence)
             for disease, confidence in ranked[:3]
@@ -133,10 +143,14 @@ def get_diagnosis(diagnosis_id: uuid.UUID, db: Session = Depends(get_db)):
     from app.models.treatment import Treatment as TreatmentModel
     treatment_map = {t.id: t for t in db.query(TreatmentModel).filter(TreatmentModel.id.in_([dt.treatment_id for dt in diagnosis_treatments])).all()}
 
+    crop = db.get(Crop, diagnosis.crop_id)
     return DiagnosisResult(
         id=diagnosis.id,
         status=diagnosis.status,
         confidence=diagnosis.confidence,
+        crop_id=diagnosis.crop_id,
+        crop_name_bn=crop.name_bn if crop else None,
+        image_ref=diagnosis.image_ref,
         candidates=[
             DiagnosisCandidateOut(
                 disease_id=c.disease_id,

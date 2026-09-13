@@ -23,10 +23,14 @@ class QueueItem(BaseModel):
     top_disease_name_bn: str | None
     confidence: float
     created_at: datetime
+    image_ref: str | None = None
 
 
 @router.get("/queue", response_model=list[QueueItem])
 def pending_queue(db: Session = Depends(get_db)):
+    """Diagnoses flagged for manual review because the vision/NLP confidence
+    fell below the auto-resolution threshold.
+    """
     diagnoses = (
         db.query(Diagnosis)
         .filter(Diagnosis.status == "NEEDS_REVIEW")
@@ -53,6 +57,7 @@ def pending_queue(db: Session = Depends(get_db)):
                 top_disease_name_bn=top_disease.name_bn if top_disease else None,
                 confidence=d.confidence,
                 created_at=d.created_at,
+                image_ref=d.image_ref,
             )
         )
     return items

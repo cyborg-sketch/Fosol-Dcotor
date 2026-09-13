@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/server_settings_dialog.dart';
 
 /// Reassuring loading state while the real pipeline runs — no fake technical
 /// details or meaningless percentages. [input] is a typed payload from
@@ -41,11 +42,10 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
       String? imageRef;
       Map<String, dynamic>? symptomsPayload;
 
-      // CameraScreen's crop dropdown picks the real crop for a photo — the
-      // voice/symptom flow still has no crop picker of its own, so it falls
-      // back to the hardcoded /demo/context crop.
-      final cropId = (input is Map ? input['cropId'] as String? : null) ?? demoContext['crop_id'] as String;
-      final cropNameBn = (input is Map ? input['cropNameBn'] as String? : null) ?? demoContext['crop_name_bn'] as String;
+      // If a cropId is provided (e.g. from a specific flow), use it.
+      // Otherwise, leave it null so the vision model classifies across all crops dynamically.
+      final cropId = input is Map ? input['cropId'] as String? : null;
+      final cropNameBn = input is Map ? input['cropNameBn'] as String? : null;
 
       if (input is Map && input['type'] == 'image') {
         imageRef = await _api.uploadImage(
@@ -55,7 +55,7 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
         );
       } else if (input is Map && input['type'] == 'symptoms') {
         symptomsPayload = {
-          'crop': cropNameBn,
+          'crop': cropNameBn ?? demoContext['crop_name_bn'] as String,
           'symptoms': [input['text'] as String],
         };
       }
@@ -68,9 +68,14 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
         source: 'online',
       );
 
-      // /diagnoses doesn't return crop_name_bn itself — attach the crop that
-      // was actually diagnosed against so DiagnosisResultScreen can show it.
-      final resultWithCrop = {...result, 'crop_name_bn': cropNameBn};
+      // Use crop_name_bn returned by backend, falling back to input or demo context
+      final diagnosedCropName = (result['crop_name_bn'] as String?) ?? cropNameBn ?? (demoContext['crop_name_bn'] as String);
+      final resultWithCrop = {
+        ...result,
+        'crop_name_bn': diagnosedCropName,
+        if (input is Map && input['bytes'] != null) 'imageBytes': input['bytes'],
+        if (imageRef != null) 'image_ref': imageRef,
+      };
       if (mounted) context.go('/diagnosis/${result['id']}', extra: resultWithCrop);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -94,7 +99,18 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
                 Text(_error!, textAlign: TextAlign.center, style: AppText.labelSm()),
                 const SizedBox(height: 20),
                 ElevatedButton(onPressed: _runDiagnosis, child: const Text('আবার চেষ্টা করুন')),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  icon: const Icon(Icons.dns_outlined, size: 18),
+                  label: const Text('সার্ভার ঠিকানা পরিবর্তন করুন'),
+                  onPressed: () async {
+                    final changed = await showServerSettingsDialog(context);
+                    if (changed == true) {
+                      _runDiagnosis();
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
                 OutlinedButton(onPressed: () => context.pop(), child: const Text('ফিরে যান')),
               ],
             ),

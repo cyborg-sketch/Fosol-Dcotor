@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/server_settings_dialog.dart';
+import '../offline/offline_cache.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -9,7 +11,21 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('প্রোফাইল')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'ফিরে যান',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        title: const Text('প্রোফাইল'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'হোম',
+            onPressed: () => context.go('/home'),
+          ),
+        ],
+      ),
       body: ListView(
         children: [
           const ListTile(leading: Icon(Icons.person_outline), title: Text('নাম'), subtitle: Text('কৃষক')),
@@ -32,6 +48,19 @@ class ProfileScreen extends StatelessWidget {
             title: const Text('BRAC আঞ্চলিক ড্যাশবোর্ড'),
             subtitle: const Text('জেলাভিত্তিক রোগের প্রবণতা'),
             onTap: () => context.push('/dashboard'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.dns_outlined, color: AppColors.primary),
+            title: const Text('সার্ভার সেটিংস'),
+            subtitle: Text(OfflineCache.getServerUrl() ?? 'ডিফল্ট (http://10.177.56.48:8000)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final changed = await showServerSettingsDialog(context);
+              if (changed == true && context.mounted) {
+                (context as Element).markNeedsBuild();
+              }
+            },
           ),
           const Divider(),
           const ListTile(leading: Icon(Icons.logout), title: Text('লগআউট')),

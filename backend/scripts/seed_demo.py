@@ -38,6 +38,7 @@ CROPS_BN = {
     "Tomato": "টমেটো",
     "Rice": "ধান",
     "Jute": "পাট",
+    "Brinjal (Eggplant)": "বেগুন",
 }
 
 # (crop_en, disease_suffix_en, name_bn, description_bn, treatments)
@@ -305,92 +306,105 @@ DISEASES = [
              safety_notes_bn="এটি ভাইরাসের সরাসরি চিকিৎসা নয়, শুধু বাহক পোকা নিয়ন্ত্রণ করে।"),
      ]),
     ("Jute", "Healthy", "সুস্থ পাট গাছ", "কোনো রোগের লক্ষণ পাওয়া যায়নি।", []),
+
+    ("Brinjal (Eggplant)", "Fruit & Shoot Borer", "বেগুনের ডগা ও ফল ছিদ্রকারী পোকা",
+     "কচি ডগা নেতিয়ে পড়ে এবং ফলে ছিদ্র দেখা যায়, মারাত্মক ক্ষতিকারক পোকা।", [
+        dict(action_bn="সেক্স ফেরোমন ফাঁদ ব্যবহার করুন এবং আক্রান্ত ডগা ও ফল কেটে মাটিতে পুঁতে ফেলুন।",
+             category="organic", cost_level=1, effectiveness_rating=4,
+             safety_notes_bn="সপ্তাহে অন্তত দুইবার আক্রান্ত ডগা ও ফল সংগ্রহ করে ধ্বংস করুন।"),
+        dict(action_bn="স্পাইনোস্যাড বা এমামেকটিন বেনজোয়েট অনুমোদিত মাত্রায় স্প্রে করুন।",
+             category="chemical", cost_level=2, effectiveness_rating=4,
+             safety_notes_bn="রাসায়নিক প্রয়োগের সময় নিরাপত্তা সরঞ্জাম ব্যবহার করুন এবং ফসল তোলার নির্ধারিত সময় মেনে চলুন।"),
+     ]),
+    ("Brinjal (Eggplant)", "Bacterial Wilt", "বেগুনের ব্যাকটেরিয়াজনিত ঢলে পড়া রোগ",
+     "সবুজ অবস্থাতেই পুরো গাছ হঠাৎ নেতিয়ে শুকিয়ে মারা যায়, ব্যাকটেরিয়াঘটিত রোগ।", [
+        dict(action_bn="আক্রান্ত গাছ তুলে ধ্বংস করুন, প্রতিরোধী জাত চাষ করুন এবং বুনো তিতবেগুনের সাথে গ্রাফটিং করুন।",
+             category="organic", cost_level=1, effectiveness_rating=4,
+             safety_notes_bn="আক্রান্ত গাছ জমি থেকে দূরে পুড়িয়ে ফেলুন।"),
+        dict(action_bn="ব্লিচিং পাউডার দিয়ে জমি শোধন করুন (প্রতি শতকে ১২০ গ্রাম)।",
+             category="chemical", cost_level=1, effectiveness_rating=3,
+             safety_notes_bn="বীজ বা চারা রোপণের পূর্বে জমিতে প্রয়োগ করুন।"),
+     ]),
+    ("Brinjal (Eggplant)", "Phomopsis Blight", "বেগুনের ফোমোপসিস ব্লাইট রোগ",
+     "পাতা ও ফলে বৃত্তাকার পচা দাগ পড়ে এবং ফল পচে যায়, ছত্রাকঘটিত রোগ।", [
+        dict(action_bn="আক্রান্ত ফল ও পাতা সংগ্রহ করে ধ্বংস করুন এবং সুষম সার প্রয়োগ করুন।",
+             category="organic", cost_level=1, effectiveness_rating=3,
+             safety_notes_bn="আক্রান্ত অংশ জমির বাইরে সরিয়ে ফেলুন।"),
+        dict(action_bn="কার্বেনডাজিম বা ম্যানকোজেব ছত্রাকনাশক নির্দেশিত মাত্রায় স্প্রে করুন।",
+             category="chemical", cost_level=2, effectiveness_rating=4,
+             safety_notes_bn="স্প্রে করার আগে প্যাকেটের নির্দেশনা পড়ুন।"),
+     ]),
+    ("Brinjal (Eggplant)", "Healthy", "সুস্থ বেগুন গাছ", "কোনো রোগের লক্ষণ পাওয়া যায়নি।", []),
 ]
 
 
 def run():
     db = SessionLocal()
     try:
-        if db.query(Crop).count() > 0:
-            print("Already seeded — skipping. Delete rows manually to reseed.")
-            return
+        existing_regions = {r.district: r for r in db.query(Region).all()}
+        rangpur = existing_regions.get("রংপুর") or Region(district="রংপুর", upazila="মিঠাপুকুর")
+        dinajpur = existing_regions.get("দিনাজপুর") or Region(district="দিনাজপুর", upazila="বিরল")
+        new_regions = [r for r in [rangpur, dinajpur] if not r.id]
+        if new_regions:
+            db.add_all(new_regions)
+            db.flush()
 
-        rangpur = Region(district="রংপুর", upazila="মিঠাপুকুর")
-        dinajpur = Region(district="দিনাজপুর", upazila="বিরল")
-        db.add_all([rangpur, dinajpur])
+        existing_crops = {c.name_en: c for c in db.query(Crop).all()}
+        crops = {}
+        for name_en, name_bn in CROPS_BN.items():
+            if name_en in existing_crops:
+                crops[name_en] = existing_crops[name_en]
+            else:
+                c = Crop(name_en=name_en, name_bn=name_bn)
+                db.add(c)
+                crops[name_en] = c
         db.flush()
 
-        crops = {name_en: Crop(name_en=name_en, name_bn=name_bn) for name_en, name_bn in CROPS_BN.items()}
-        db.add_all(crops.values())
-        db.flush()
-
+        existing_diseases = {d.name_en: d for d in db.query(Disease).all()}
         diseases: dict[str, Disease] = {}
         treatments_by_disease: dict[str, list[Treatment]] = {}
         for crop_en, disease_suffix_en, name_bn, description_bn, treatment_specs in DISEASES:
-            name_en = f"{crop_en} - {disease_suffix_en}"
-            disease = Disease(crop_id=crops[crop_en].id, name_en=name_en, name_bn=name_bn, description_bn=description_bn)
-            db.add(disease)
-            diseases[name_en] = disease
-            treatments_by_disease[name_en] = treatment_specs
+            full_name_en = f"{crop_en} - {disease_suffix_en}"
+            if full_name_en in existing_diseases:
+                disease = existing_diseases[full_name_en]
+            else:
+                disease = Disease(crop_id=crops[crop_en].id, name_en=full_name_en, name_bn=name_bn, description_bn=description_bn)
+                db.add(disease)
+            diseases[full_name_en] = disease
+            treatments_by_disease[full_name_en] = treatment_specs
         db.flush()
 
+        existing_treatments = {t.disease_id for t in db.query(Treatment).all()}
         treatment_rows = []
-        for name_en, specs in treatments_by_disease.items():
-            for spec in specs:
-                treatment_rows.append(Treatment(disease_id=diseases[name_en].id, approved=True, **spec))
-        db.add_all(treatment_rows)
-        db.flush()
-        treatments_by_disease_id: dict = {}
-        for treatment in treatment_rows:
-            treatments_by_disease_id.setdefault(treatment.disease_id, []).append(treatment)
+        for full_name_en, specs in treatments_by_disease.items():
+            d = diseases[full_name_en]
+            if d.id not in existing_treatments:
+                for spec in specs:
+                    treatment_rows.append(Treatment(disease_id=d.id, approved=True, **spec))
+        if treatment_rows:
+            db.add_all(treatment_rows)
+            db.flush()
 
-        farmer1 = Farmer(phone="+8801710000001", name="রহমত আলী", region_id=rangpur.id)
-        farmer2 = Farmer(phone="+8801710000002", name="সালমা বেগম", region_id=dinajpur.id)
-        db.add_all([farmer1, farmer2])
+        farmer1 = db.query(Farmer).filter(Farmer.phone == "+8801710000001").first()
+        if not farmer1:
+            farmer1 = Farmer(phone="+8801710000001", name="রহমত আলী", region_id=rangpur.id)
+            db.add(farmer1)
+        farmer2 = db.query(Farmer).filter(Farmer.phone == "+8801710000002").first()
+        if not farmer2:
+            farmer2 = Farmer(phone="+8801710000002", name="সালমা বেগম", region_id=dinajpur.id)
+            db.add(farmer2)
         db.flush()
 
-        field_worker = FieldWorker(name="কৃষি কর্মকর্তা - রংপুর", phone="+8801910000001", region_id=rangpur.id)
-        db.add(field_worker)
-        db.flush()
-
-        # High-confidence, auto-resolved diagnosis
-        tomato_late_blight = diseases["Tomato - Late Blight"]
-        diag1 = Diagnosis(
-            farmer_id=farmer1.id,
-            crop_id=crops["Tomato"].id,
-            region_id=rangpur.id,
-            confidence=0.94,
-            source="online",
-            model_version="efficientnet-b0-linear-head-v1",
-            status="AUTO_RESOLVED",
-        )
-        db.add(diag1)
-        db.flush()
-        diag1_treatments = treatments_by_disease_id[tomato_late_blight.id]
-        db.add_all([
-            DiagnosisCandidate(diagnosis_id=diag1.id, disease_id=tomato_late_blight.id, confidence=0.94, rank=1),
-            *[DiagnosisTreatment(diagnosis_id=diag1.id, treatment_id=t.id, rank=i + 1) for i, t in enumerate(diag1_treatments)],
-        ])
-
-        # Low-confidence diagnosis awaiting field-worker review
-        potato_early_blight = diseases["Potato - Early Blight"]
-        diag2 = Diagnosis(
-            farmer_id=farmer2.id,
-            crop_id=crops["Potato"].id,
-            region_id=dinajpur.id,
-            confidence=0.52,
-            source="online",
-            model_version="efficientnet-b0-linear-head-v1",
-            status="NEEDS_REVIEW",
-        )
-        db.add(diag2)
-        db.flush()
-        db.add(DiagnosisCandidate(diagnosis_id=diag2.id, disease_id=potato_early_blight.id, confidence=0.52, rank=1))
+        field_worker = db.query(FieldWorker).filter(FieldWorker.phone == "+8801910000001").first()
+        if not field_worker:
+            field_worker = FieldWorker(name="কৃষি কর্মকর্তা - রংপুর", phone="+8801910000001", region_id=rangpur.id)
+            db.add(field_worker)
+            db.flush()
 
         db.commit()
         print(
-            f"Seeded: 2 regions, {len(crops)} crops, {len(diseases)} diseases, "
-            f"{len(treatment_rows)} treatments, 2 farmers, 1 field worker, 2 diagnoses."
+            f"Seeded: {len(crops)} crops, {len(diseases)} diseases, "
+            f"{len(treatment_rows)} treatments."
         )
     finally:
         db.close()

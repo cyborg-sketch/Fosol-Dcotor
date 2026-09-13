@@ -95,9 +95,23 @@ class _FieldWorkerReviewScreenState extends State<FieldWorkerReviewScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              height: 160,
+              height: 180,
+              width: double.infinity,
               color: AppColors.surfaceContainerHighest,
-              child: const Center(child: Icon(Icons.image, size: 40, color: AppColors.onSurfaceVariant)),
+              child: item['image_ref'] != null && (item['image_ref'] as String).isNotEmpty
+                  ? Image.network(
+                      '${ApiClient().baseUrl}/images/${item['image_ref']}',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 180,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(child: Icon(Icons.image, size: 40, color: AppColors.onSurfaceVariant)),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                      },
+                    )
+                  : const Center(child: Icon(Icons.image, size: 40, color: AppColors.onSurfaceVariant)),
             ),
           ),
           const SizedBox(height: 16),

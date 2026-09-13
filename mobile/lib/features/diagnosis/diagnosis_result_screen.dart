@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Mirrors stitch_fasol_doctor_agriculture_app_design/diagnosis_result_high_confidence.
@@ -17,6 +20,8 @@ class DiagnosisResultScreen extends StatefulWidget {
     this.confidencePercent = 94,
     this.needsReview = false,
     this.treatments = const [],
+    this.imageBytes,
+    this.imageRef,
   });
 
   final String diseaseNameBn;
@@ -25,6 +30,8 @@ class DiagnosisResultScreen extends StatefulWidget {
   final int confidencePercent;
   final bool needsReview;
   final List<Map<String, dynamic>> treatments;
+  final Uint8List? imageBytes;
+  final String? imageRef;
 
   /// Builds the screen from a POST /diagnoses (or GET /diagnoses/:id)
   /// response — the real path, used once analyzing_screen.dart gets a
@@ -52,6 +59,8 @@ class DiagnosisResultScreen extends StatefulWidget {
       confidencePercent: confidencePercent,
       needsReview: needsReview,
       treatments: (data['treatments'] as List?)?.cast<Map<String, dynamic>>() ?? const [],
+      imageBytes: data['imageBytes'] as Uint8List?,
+      imageRef: (data['image_ref'] ?? data['imageRef']) as String?,
     );
   }
 
@@ -65,7 +74,27 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ফলাফল')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'ফিরে যান',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
+        title: const Text('ফলাফল'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'হোম',
+            onPressed: () => context.go('/home'),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -111,11 +140,13 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              height: 200,
+              height: 220,
+              width: double.infinity,
               color: AppColors.surfaceContainerHighest,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  const Center(child: Icon(Icons.image, size: 48, color: AppColors.onSurfaceVariant)),
+                  _buildImagePreview(),
                   Positioned(
                     top: 12,
                     left: 12,
@@ -256,10 +287,10 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                             ),
                           ),
                           if (_reasonsExpanded)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                               child: Column(
-                                children: const [
+                                children: [
                                   _ReasonTile(title: 'পাতার দাগের আকৃতি', body: 'পাতার কিনারা স্পষ্ট বাদামি ও কেন্দ্রের অংশ ছাই রঙের হয়ে রয়েছে।'),
                                   SizedBox(height: 8),
                                   _ReasonTile(title: 'আবহাওয়ার প্রভাব', body: 'বর্তমান স্যাঁতসেঁতে ও আর্দ্র আবহাওয়ায় এই ছত্রাকটি খুব দ্রুত ছড়ায়।'),
@@ -309,6 +340,18 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
               icon: const Icon(Icons.support_agent),
               label: const Text('কৃষি বিশেষজ্ঞের মতামত নিন'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => context.go('/camera'),
+              icon: const Icon(Icons.replay),
+              label: const Text('আরেকটি ছবি তুলুন'),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => context.go('/home'),
+              icon: const Icon(Icons.home),
+              label: const Text('হোমে ফিরে যান'),
+            ),
           ] else ...[
             if (widget.treatments.isNotEmpty)
               OutlinedButton.icon(
@@ -329,14 +372,51 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+              onPressed: () => context.go('/camera'),
               icon: const Icon(Icons.replay),
               label: const Text('আরেকটি ছবি তুলুন'),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => context.go('/home'),
+              icon: const Icon(Icons.home),
+              label: const Text('হোমে ফিরে যান'),
             ),
           ],
         ],
       ),
     );
+  }
+
+  Widget _buildImagePreview() {
+    if (widget.imageBytes != null && widget.imageBytes!.isNotEmpty) {
+      return Image.memory(
+        widget.imageBytes!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 220,
+        errorBuilder: (context, error, stackTrace) => _fallbackIcon(),
+      );
+    }
+    if (widget.imageRef != null && widget.imageRef!.isNotEmpty) {
+      final imageUrl = '${ApiClient().baseUrl}/images/${widget.imageRef}';
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 220,
+        errorBuilder: (context, error, stackTrace) => _fallbackIcon(),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        },
+      );
+    }
+    return _fallbackIcon();
+  }
+
+  Widget _fallbackIcon() {
+    return const Center(child: Icon(Icons.image, size: 48, color: AppColors.onSurfaceVariant));
   }
 }
 

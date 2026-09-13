@@ -35,6 +35,11 @@ class _FieldWorkerQueueScreenState extends State<FieldWorkerQueueScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'ফিরে যান',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+        ),
         title: const Text('যাচাইয়ের অপেক্ষায়'),
         actions: [
           IconButton(

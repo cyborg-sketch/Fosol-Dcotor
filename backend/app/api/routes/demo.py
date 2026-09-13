@@ -19,7 +19,7 @@ def demo_context(db: Session = Depends(get_db)):
     # Pinned to Tomato, not just "first crop" by id (UUIDs sort randomly) —
     # Tomato has the richest seeded disease set (6 classes) of the 9 crops in
     # scripts/seed_demo.py, giving the best demo depth for this hardcoded pick.
-    crop = db.query(Crop).filter(Crop.name_en == "Tomato").first()
+    crop = db.query(Crop).filter(Crop.name_en == "Tomato").first() or db.query(Crop).first()
     if not farmer or not crop:
         raise HTTPException(status_code=404, detail="No seed data — run scripts/seed_demo.py first")
     return {
